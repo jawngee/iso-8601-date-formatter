@@ -16,7 +16,7 @@ unichar ISO8601DefaultTimeSeparatorCharacter = DEFAULT_TIME_SEPARATOR;
 #define ISO_CALENDAR_DATE_FORMAT @"yyyy-MM-dd"
 //#define ISO_WEEK_DATE_FORMAT @"YYYY-'W'ww-ee" //Doesn't actually work because NSDateComponents counts the weekday starting at 1.
 #define ISO_ORDINAL_DATE_FORMAT @"yyyy-DDD"
-#define ISO_TIME_FORMAT @"HH:mm:ss"
+#define ISO_TIME_FORMAT @"HH:mm:ss.SSS"
 #define ISO_TIME_WITH_TIMEZONE_FORMAT  ISO_TIME_FORMAT @"Z"
 //printf formats.
 #define ISO_TIMEZONE_UTC_FORMAT @"Z"
@@ -147,13 +147,13 @@ static BOOL is_leap_year(NSUInteger year);
  *  -W-d
  */
 
-- (NSDateComponents *) dateComponentsFromString:(NSString *)string {
-	return [self dateComponentsFromString:string timeZone:NULL];
+- (NSDateComponents *) dateComponentsFromString:(NSString *)string milliseconds:(out double *)millseconds {
+	return [self dateComponentsFromString:string timeZone:NULL milliseconds:millseconds];
 }
-- (NSDateComponents *) dateComponentsFromString:(NSString *)string timeZone:(out NSTimeZone **)outTimeZone {
-	return [self dateComponentsFromString:string timeZone:outTimeZone range:NULL];
+- (NSDateComponents *) dateComponentsFromString:(NSString *)string timeZone:(out NSTimeZone **)outTimeZone milliseconds:(out double *)millseconds {
+	return [self dateComponentsFromString:string timeZone:outTimeZone range:NULL milliseconds:millseconds];
 }
-- (NSDateComponents *) dateComponentsFromString:(NSString *)string timeZone:(out NSTimeZone **)outTimeZone range:(out NSRange *)outRange {
+- (NSDateComponents *) dateComponentsFromString:(NSString *)string timeZone:(out NSTimeZone **)outTimeZone range:(out NSRange *)outRange milliseconds:(out double *)millseconds {
 	NSDate *now = [NSDate date];
 
 	NSDateComponents *components = [[[NSDateComponents alloc] init] autorelease];
@@ -572,6 +572,8 @@ static BOOL is_leap_year(NSUInteger year);
 			components.hour = hour;
 			components.minute = (NSInteger)minute;
 			components.second = (NSInteger)second;
+            *millseconds=second-floor(second);
+            
 
 			switch(dateSpecification) {
 				case monthAndDate:
@@ -619,12 +621,14 @@ static BOOL is_leap_year(NSUInteger year);
 }
 - (NSDate *) dateFromString:(NSString *)string timeZone:(out NSTimeZone **)outTimeZone range:(out NSRange *)outRange {
 	NSTimeZone *timeZone = nil;
-	NSDateComponents *components = [self dateComponentsFromString:string timeZone:&timeZone range:outRange];
+    double millis=0.0;
+	NSDateComponents *components = [self dateComponentsFromString:string timeZone:&timeZone range:outRange milliseconds:&millis];
 	if (outTimeZone)
 		*outTimeZone = timeZone;
 	parsingCalendar.timeZone = timeZone;
 
-	return [parsingCalendar dateFromComponents:components];
+	NSDate *date=[parsingCalendar dateFromComponents:components];
+    return [date dateByAddingTimeInterval:millis];
 }
 
 - (BOOL)getObjectValue:(id *)outValue forString:(NSString *)string errorDescription:(NSString **)error {
